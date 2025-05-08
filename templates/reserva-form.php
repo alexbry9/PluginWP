@@ -31,7 +31,7 @@
     <label for="rm_personas">Número de personas:</label>
     <input type="number" name="rm_personas" min="1" required>
 
-    <input type="submit" name="rm_submit" value="Reservar">
+    <input type="submit" name="rm_submit" value="Solicitar reserva">
 
     <?php if (isset($_GET['reserva']) && $_GET['reserva'] == 'ok') : ?>
     <p class="rm-mensaje-exito">¡Reserva realizada con éxito!</p>

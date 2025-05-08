@@ -2,12 +2,12 @@
 /**
  * Plugin Name: Reserva de Mesas
  * Description: Permite a los clientes reservar mesas desde tu sitio web.
- * Version: 0.4
+ * Version: 0.5
  * Author: Alejandro Briones
  */
 
 defined('ABSPATH') or die('Sin acceso directo');
-define('RM_MESAS_TOTALES', 6);
+define('RM_MESAS_TOTALES', 8);
 define('RM_PERSONAS_POR_MESA', 2);
 
 register_activation_hook(__FILE__, 'rm_crear_tabla_reservas');
