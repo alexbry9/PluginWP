@@ -16,6 +16,7 @@ Shortcode Mágico: Implementación fácil con [reserva_mesa].
 
 Calendario Visual: Vista intuitiva para gestionar reservas.
 
+
 🛠 Instalación
 Descarga el archivo ZIP del plugin.
 
@@ -26,6 +27,7 @@ Activa "Reserva de Mesas".
 Configura los ajustes en Reservas > Ajustes.
 
 Inserta [reserva_mesa] en cualquier página/post.
+
 
 📝 Modo de Uso
 👨‍🍳 Para Clientes:
@@ -41,46 +43,6 @@ Aprueba/Rechaza reservas desde el calendario.
 Añade reservas manuales cuando sea necesario.
 
 Configura días festivos y límites de capacidad.
-
-🍽 PluginWP - Restaurant Booking System
-(Plain text version for easy copy/paste)
-
-🚀 Core Features
-Smart Bookings: Real-time date/time picker with validation.
-
-Admin Dashboard: Full management from WordPress.
-
-Auto-Validation: Capacity control and schedule rules.
-
-Email Alerts: Instant notifications for both parties.
-
-Mobile-Ready: Flawless on all devices.
-
-Magic Shortcode: Easy embed with [reserva_mesa].
-
-Live Calendar: Intuitive booking management.
-
-🛠 Installation
-Download plugin ZIP file.
-
-Go to Plugins > Add New > Upload in WordPress.
-
-Activate "Table Reservations".
-
-Configure settings at Reservations > Settings.
-
-Add [reserva_mesa] to any page/post.
-
-📝 How to Use
-👨‍🍳 For Customers:
-
-Fill out the booking form.
-
-Get instant email confirmation.
-
-👔 For Admins:
-
-Approve/Reject bookings via calendar.
 
 Add manual reservations when needed.
 
