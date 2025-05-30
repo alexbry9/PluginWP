@@ -2,77 +2,174 @@
 add_action('init', 'rm_procesar_formulario');
 
 function rm_procesar_formulario() {
-    // Verificar que el formulario ha sido enviado y el nonce es válido
-    if (isset($_POST['rm_submit']) && isset($_POST['rm_nonce']) && wp_verify_nonce($_POST['rm_nonce'], 'rm_reserva_form')) {
-        global $wpdb;
+    if (!isset($_POST['rm_submit']) || !wp_verify_nonce($_POST['rm_nonce'], 'rm_reserva_form')) {
+        return;
+    }
 
-        // Obtener los datos del formulario
-        $nombre = sanitize_text_field($_POST['rm_nombre']);
-        $fecha = sanitize_text_field($_POST['rm_fecha']);
-        $hora = sanitize_text_field($_POST['rm_hora']);
-        $personas = intval($_POST['rm_personas']);
-        $email = sanitize_email($_POST['rm_email']);
+    // Sanitizar datos primero
+    $nombre = sanitize_text_field($_POST['rm_nombre']);
+    $fecha = sanitize_text_field($_POST['rm_fecha']);
+    $hora = sanitize_text_field($_POST['rm_hora']);
+    $personas = intval($_POST['rm_personas']);
+    $email = sanitize_email($_POST['rm_email']);
 
-        // Agregar depuración para verificar que los datos se están recibiendo
-        error_log("Formulario recibido: Nombre = $nombre, Fecha = $fecha, Hora = $hora, Personas = $personas, Email = $email");
+    // --- Validaciones estrictas (si alguna falla, NO se guarda) ---
+    $errores = [];
 
-        // Calcular las mesas necesarias para la reserva
-        $mesas_requeridas = ceil($personas / RM_PERSONAS_POR_MESA);
+    // 1. Validar máximo de personas
+    $max_personas = get_option('rm_max_personas_reserva', 10);
+    if ($personas > $max_personas) {
+        $errores[] = 'max_personas';
+    }
 
-        // Consultar mesas ocupadas para el horario y fecha seleccionados
-        $tabla = $wpdb->prefix . 'reservas_mesas';
-        $mesas_ocupadas = $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT SUM(CEIL(personas / %d)) FROM $tabla WHERE fecha = %s AND hora = %s",
-                RM_PERSONAS_POR_MESA, $fecha, $hora
-            )
-        );
+    // 2. Validar día cerrado
+    $dias_cerrados = get_option('rm_dias_cerrados', []);
+    $dia_semana = strtolower(date('l', strtotime($fecha)));
+    $dia_semana_es = [
+        'monday'    => 'lunes',
+        'tuesday'   => 'martes',
+        'wednesday' => 'miercoles',
+        'thursday'  => 'jueves',
+        'friday'    => 'viernes',
+        'saturday'  => 'sabado',
+        'sunday'    => 'domingo'
+    ];
+    
+    if (in_array($dia_semana_es[$dia_semana], $dias_cerrados)) {
+        $errores[] = 'dia_cerrado';
+    }
 
-        // Si no hay resultados de mesas ocupadas, asumimos 0
-        $mesas_ocupadas = $mesas_ocupadas ?? 0;
+    // 3. Validar horario
+    $hora_reserva = strtotime($hora);
+    $hora_apertura = strtotime(get_option('rm_hora_apertura', '12:00'));
+    $hora_cierre = strtotime(get_option('rm_hora_cierre', '23:00'));
+    if ($hora_reserva < $hora_apertura || $hora_reserva > $hora_cierre) {
+        $errores[] = 'fuera_horario';
+    }
 
-        // Verificar si hay suficientes mesas disponibles
-        if (($mesas_ocupadas + $mesas_requeridas) > RM_MESAS_TOTALES) {
-            // Redirigir con un mensaje de error
-            wp_redirect(add_query_arg('reserva', 'fail', wp_get_referer()));
-            exit;
+    // --- Si hay errores, redirigir SIN guardar ---
+    if (!empty($errores)) {
+        wp_redirect(add_query_arg('reserva', $errores[0], wp_get_referer()));
+        exit;
+    }
+
+    // --- Verificar disponibilidad de mesas ---
+    global $wpdb;
+    $tabla = $wpdb->prefix . 'reservas_mesas';
+
+    // 1. Calcular mesas ocupadas para esa fecha y hora
+    $mesas_ocupadas = $wpdb->get_var($wpdb->prepare(
+        "SELECT SUM(CEILING(personas/%d)) 
+        FROM $tabla 
+        WHERE fecha = %s 
+        AND hora = %s",
+        RM_PERSONAS_POR_MESA,
+        $fecha,
+        $hora
+    )) ?: 0;
+
+    // 2. Calcular mesas necesarias para esta reserva
+    $mesas_requeridas = ceil($personas / RM_PERSONAS_POR_MESA);
+
+    // 3. Verificar disponibilidad
+    if (($mesas_ocupadas + $mesas_requeridas) > RM_MESAS_TOTALES) {
+        wp_redirect(add_query_arg('reserva', 'no_disponible', wp_get_referer()));
+        exit;
+    }
+
+    // --- Si todo está OK, guardar la reserva ---
+    $resultado = $wpdb->insert(
+        $tabla,
+        [
+            'nombre' => $nombre,
+            'email' => $email,
+            'fecha' => $fecha,
+            'hora' => $hora,
+            'personas' => $personas
+        ],
+        ['%s', '%s', '%s', '%s', '%d']
+    );
+
+    // CORREO 
+    if ($resultado) {
+        // 1. Configuración básica
+        $to_admin = get_option('admin_email'); // Email del administrador
+        $to_client = $email; // Email del cliente
+        $headers = array('Content-Type: text/html; charset=UTF-8');
+        
+        // 2. Plantilla HTML para el cliente
+        $message_cliente = '
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; }
+                .reserva-box { border: 1px solid #e0e0e0; padding: 20px; max-width: 600px; margin: 0 auto; }
+                .reserva-title { color: #d4a762; font-size: 24px; }
+                .reserva-details { margin-top: 15px; }
+            </style>
+        </head>
+        <body>
+            <div class="reserva-box">
+                <h2 class="reserva-title">¡Reserva confirmada!</h2>
+                <p>Hola '.esc_html($nombre).',</p>
+                <div class="reserva-details">
+                    <p><strong>Detalles de tu reserva:</strong></p>
+                    <ul>
+                        <li><strong>Fecha:</strong> '.esc_html($fecha).'</li>
+                        <li><strong>Hora:</strong> '.esc_html($hora).'</li>
+                        <li><strong>Personas:</strong> '.esc_html($personas).'</li>
+                    </ul>
+                </div>
+                <p>¡Gracias por elegirnos! Estamos preparando todo para tu visita.</p>
+            </div>
+        </body>
+        </html>
+        ';
+
+        // 3. Plantilla para el admin
+        $message_admin = '
+        <html>
+        <body>
+            <h2>Nueva reserva recibida</h2>
+            <p><strong>Cliente:</strong> '.esc_html($nombre).' ('.esc_html($email).')</p>
+            <p><strong>Detalles:</strong></p>
+            <ul>
+                <li>Fecha: '.esc_html($fecha).'</li>
+                <li>Hora: '.esc_html($hora).'</li>
+                <li>Personas: '.esc_html($personas).'</li>
+            </ul>
+        </body>
+        </html>
+        ';
+
+        // 4. Envío de emails
+        try {
+            // Email al cliente
+            wp_mail(
+                $to_client,
+                'Confirmación de reserva - ' . get_bloginfo('name'),
+                $message_cliente,
+                $headers
+            );
+            
+            // Notificación al admin
+            wp_mail(
+                $to_admin,
+                'Nueva reserva de ' . esc_html($nombre),
+                $message_admin,
+                $headers
+            );
+            
+        } catch (Exception $e) {
+            error_log('Error enviando email de reserva: ' . $e->getMessage());
         }
-
-        // Si todo está bien, hacer la reserva
-        $resultado = $wpdb->insert(
-            $tabla,
-            [
-                'nombre' => $nombre,
-                'email' => $email,
-                'fecha' => $fecha,
-                'hora' => $hora,
-                'personas' => $personas
-            ]
-        );
-
-        // Verificar si la inserción fue exitosa
-        if ($resultado) {
-            // Enviar notificación al administrador
-            $mensaje_admin = "Nueva reserva:\n\n";
-            $mensaje_admin .= "Nombre: $nombre\n";
-            $mensaje_admin .= "Email: $email\n";
-            $mensaje_admin .= "Fecha: $fecha\n";
-            $mensaje_admin .= "Hora: $hora\n";
-            $mensaje_admin .= "Personas: $personas\n";
-            wp_mail("tu_email@dominio.com", 'Nueva reserva de mesa', $mensaje_admin);
-
-            // Enviar confirmación al usuario
-            $mensaje_usuario = "Hola $nombre,\n\nTu reserva se ha recibido correctamente.\n\nDetalles:\nFecha: $fecha\nHora: $hora\nPersonas: $personas\n\nGracias por reservar.";
-            wp_mail($email, 'Confirmación de tu reserva', $mensaje_usuario);
-
-            // Redirigir a la página de confirmación
-            wp_redirect(home_url('/reservas/'));
-            exit;
-        } else {
-            // Si la inserción no fue exitosa, puedes agregar un mensaje de error
-            error_log('Error al guardar la reserva en la base de datos.');
-        }
+        
+        // Redirección a página específica
+        wp_redirect(home_url('/reservas/'));  // Cambia '/reserva-exitosa/' por el slug de tu página
+        exit;
+    } else {
+        wp_redirect(add_query_arg('reserva', 'error_bd', wp_get_referer()));
+        exit;
     }
 }
-
 ?>

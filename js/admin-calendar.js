@@ -1,28 +1,49 @@
-document.addEventListener('DOMContentLoaded', function () {
-    const calendario = document.getElementById('rm-calendario');
-    if (!calendario || typeof rmReservasData === 'undefined') return;
+document.addEventListener('DOMContentLoaded', function() {
+    if (!document.getElementById('rm-calendario') || !rmReservasData) return;
 
-    const calendar = new FullCalendar.Calendar(calendario, {
+    const calendarEl = document.getElementById('rm-calendario');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         locale: 'es',
-        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
         events: rmReservasData.eventos,
         eventClick: function(info) {
-            const confirmacion = confirm(`¿Quieres eliminar la reserva de:\n\n${info.event.title}?`);
-            if (confirmacion) {
-                // Enviamos la solicitud AJAX para eliminar
+            // Mostrar detalles en un modal o alerta
+            const detalles = `
+                <h3>${info.event.title}</h3>
+                <p><strong>Fecha:</strong> ${info.event.start.toLocaleString()}</p>
+                <p><strong>Personas:</strong> ${info.event.extendedProps.personas}</p>
+                <p><strong>Email:</strong> ${info.event.extendedProps.email || 'No disponible'}</p>
+            `;
+            
+            if (confirm(`${detalles}\n\n¿Deseas cancelar esta reserva?`)) {
                 fetch(rmReservasData.ajax_url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
                     body: new URLSearchParams({
                         action: 'rm_eliminar_reserva',
-                        reserva_id: info.event.id
+                        reserva_id: info.event.id,
+                        nonce: rmReservasData.nonce
                     })
                 })
-                .then(res => res.text())
-                .then(res => {
-                    alert(res);
-                    info.event.remove(); // Quitar del calendario visualmente
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        info.event.remove();
+                        alert('Reserva cancelada correctamente');
+                    } else {
+                        alert('Error: ' + data.data);
+                    }
+                })
+                .catch(error => {
+                    alert('Error al procesar la solicitud');
+                    console.error(error);
                 });
             }
         }
@@ -30,4 +51,3 @@ document.addEventListener('DOMContentLoaded', function () {
 
     calendar.render();
 });
-
