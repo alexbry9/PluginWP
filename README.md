@@ -1,5 +1,4 @@
-🍽 PluginWP - Sistema de Reservas para Restaurantes
-
+🍽 #PluginWP - Sistema de Reservas para Restaurantes#
 🚀 Características Principales
 Reservas Inteligentes: Los clientes seleccionan fecha/hora exacta con validación en tiempo real.
 
@@ -15,7 +14,7 @@ Shortcode Mágico: Implementación fácil con [reserva_mesa].
 
 Calendario Visual: Vista intuitiva para gestionar reservas.
 
-🛠 Instalación
+🛠  #Instalación#
 Descarga el archivo ZIP del plugin.
 
 Ve a Plugins > Añadir nuevo > Subir plugin en WordPress.
@@ -28,15 +27,14 @@ Inserta [reserva_mesa] en cualquier página/post.
 
 📝 Modo de Uso
 👨‍🍳 Para Clientes:
-
 Rellena el formulario con tus datos.
 
 Recibe confirmación por email al instante.
 
 👔 Para Administradores:
-
 Aprueba/Rechaza reservas desde el calendario.
 
 Añade reservas manuales cuando sea necesario.
 
 Configura días festivos y límites de capacidad.
+
