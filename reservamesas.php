@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Reserva de Mesas
  * Description: Permite a los clientes reservar mesas desde tu sitio web.
- * Version: 0.7.1
+ * Version: 0.8
  * Author: Alejandro Briones
  */
 
@@ -586,7 +586,7 @@ add_shortcode('reserva_mesa', function() {
 
 // Incluir el handler
 include_once plugin_dir_path(__FILE__) . 'includes/form-handler.php';
-// Incluir funcionalidad del calendario
+require_once plugin_dir_path(__FILE__) . 'includes/smtp.php';
 
 error_log($hook);
 

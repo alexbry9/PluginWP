@@ -90,86 +90,82 @@ function rm_procesar_formulario() {
         ['%s', '%s', '%s', '%s', '%d']
     );
 
+    require_once plugin_dir_path(__FILE__) . 'smtp.php';
+
     // CORREO 
-    if ($resultado) {
-        // 1. Configuración básica
-        $to_admin = get_option('admin_email'); // Email del administrador
-        $to_client = $email; // Email del cliente
-        $headers = array('Content-Type: text/html; charset=UTF-8');
-        
-        // 2. Plantilla HTML para el cliente
-        $message_cliente = '
-        <html>
-        <head>
-            <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; }
-                .reserva-box { border: 1px solid #e0e0e0; padding: 20px; max-width: 600px; margin: 0 auto; }
-                .reserva-title { color: #d4a762; font-size: 24px; }
-                .reserva-details { margin-top: 15px; }
-            </style>
-        </head>
-        <body>
-            <div class="reserva-box">
-                <h2 class="reserva-title">¡Reserva confirmada!</h2>
-                <p>Hola '.esc_html($nombre).',</p>
-                <div class="reserva-details">
-                    <p><strong>Detalles de tu reserva:</strong></p>
-                    <ul>
-                        <li><strong>Fecha:</strong> '.esc_html($fecha).'</li>
-                        <li><strong>Hora:</strong> '.esc_html($hora).'</li>
-                        <li><strong>Personas:</strong> '.esc_html($personas).'</li>
-                    </ul>
-                </div>
-                <p>¡Gracias por elegirnos! Estamos preparando todo para tu visita.</p>
+        if ($resultado) {
+    $to_admin = get_option('admin_email'); // Email admin
+    $to_client = $email;                   // Email cliente
+
+    // 1. Plantilla HTML para el cliente
+    $message_cliente = '
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; }
+            .reserva-box { border: 1px solid #e0e0e0; padding: 20px; max-width: 600px; margin: 0 auto; }
+            .reserva-title { color: #d4a762; font-size: 24px; }
+            .reserva-details { margin-top: 15px; }
+        </style>
+    </head>
+    <body>
+        <div class="reserva-box">
+            <h2 class="reserva-title">¡Reserva confirmada!</h2>
+            <p>Hola ' . esc_html($nombre) . ',</p>
+            <div class="reserva-details">
+                <p><strong>Detalles de tu reserva:</strong></p>
+                <ul>
+                    <li><strong>Fecha:</strong> ' . esc_html($fecha) . '</li>
+                    <li><strong>Hora:</strong> ' . esc_html($hora) . '</li>
+                    <li><strong>Personas:</strong> ' . esc_html($personas) . '</li>
+                </ul>
             </div>
-        </body>
-        </html>
-        ';
+            <p>¡Gracias por elegirnos! Estamos preparando todo para tu visita.</p>
+        </div>
+    </body>
+    </html>
+    ';
 
-        // 3. Plantilla para el admin
-        $message_admin = '
-        <html>
-        <body>
-            <h2>Nueva reserva recibida</h2>
-            <p><strong>Cliente:</strong> '.esc_html($nombre).' ('.esc_html($email).')</p>
-            <p><strong>Detalles:</strong></p>
-            <ul>
-                <li>Fecha: '.esc_html($fecha).'</li>
-                <li>Hora: '.esc_html($hora).'</li>
-                <li>Personas: '.esc_html($personas).'</li>
-            </ul>
-        </body>
-        </html>
-        ';
+    // 2. Plantilla HTML para el admin
+    $message_admin = '
+    <html>
+    <body>
+        <h2>Nueva reserva recibida</h2>
+        <p><strong>Cliente:</strong> ' . esc_html($nombre) . ' (' . esc_html($email) . ')</p>
+        <p><strong>Detalles:</strong></p>
+        <ul>
+            <li>Fecha: ' . esc_html($fecha) . '</li>
+            <li>Hora: ' . esc_html($hora) . '</li>
+            <li>Personas: ' . esc_html($personas) . '</li>
+        </ul>
+    </body>
+    </html>
+    ';
 
-        // 4. Envío de emails
-        try {
-            // Email al cliente
-            wp_mail(
-                $to_client,
-                'Confirmación de reserva - ' . get_bloginfo('name'),
-                $message_cliente,
-                $headers
-            );
-            
-            // Notificación al admin
-            wp_mail(
-                $to_admin,
-                'Nueva reserva de ' . esc_html($nombre),
-                $message_admin,
-                $headers
-            );
-            
-        } catch (Exception $e) {
-            error_log('Error enviando email de reserva: ' . $e->getMessage());
-        }
-        
-        // Redirección a página específica
-        wp_redirect(home_url('/reservas/'));  // Cambia '/reserva-exitosa/' por el slug de tu página
-        exit;
-    } else {
-        wp_redirect(add_query_arg('reserva', 'error_bd', wp_get_referer()));
-        exit;
+    // 3. Enviar correos
+    $mail_client = enviar_correo_smtp(
+        $to_client,
+        'Confirmación de reserva - ' . get_bloginfo('name'),
+        $message_cliente
+    );
+
+    $mail_admin = enviar_correo_smtp(
+        $to_admin,
+        'Nueva reserva de ' . esc_html($nombre),
+        $message_admin
+    );
+
+    if (!$mail_client || !$mail_admin) {
+        error_log('Error enviando correo de confirmación o notificación de reserva');
     }
+
+    // 4. Redireccionar a página de éxito
+    wp_redirect(home_url('/reservas/'));
+    exit;
+} else {
+    wp_redirect(add_query_arg('reserva', 'error_bd', wp_get_referer()));
+    exit;
+}
+
 }
 ?>
